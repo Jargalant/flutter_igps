@@ -25,7 +25,7 @@ class MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-    // Start timer to fetch data periodically, but DO NOT fetch immediately here
+    _fetchData();
     _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
       _fetchData();
     });
@@ -34,19 +34,11 @@ class MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    _controller?.dispose();
-    _controller = null;
     super.dispose();
   }
 
   void _onMapCreated(GoogleMapController controller) {
     _controller = controller;
-    // Delay initial fetch to avoid recreating view error
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        _fetchData();
-      }
-    });
   }
 
   void updateMapCenter(double latitude, double longitude) {
@@ -80,14 +72,12 @@ class MapScreenState extends State<MapScreen> {
       }
       final decoded = json.decode(response.body);
       final dataList = decoded is List ? decoded : (decoded['data'] ?? []);
-      if (!mounted) return;
       setState(() {
         _data = dataList;
       });
       await _updateMarkers();
-    } catch (e, stack) {
-      print('Fetch data error: $e');
-      print('Stack: $stack');
+    } catch (e) {
+      // Handle or log error here
     }
   }
 
@@ -98,27 +88,40 @@ class MapScreenState extends State<MapScreen> {
       const double imageWidth = 200.0;
       const double imageHeight = 240.0;
 
+      // Load car image
       final ByteData imageData = await rootBundle.load('assets/car100.png');
       final ui.Codec codec = await ui.instantiateImageCodec(imageData.buffer.asUint8List());
       final ui.FrameInfo frame = await codec.getNextFrame();
       final ui.Image image = frame.image;
 
+      // Calculate center to rotate around
       final Offset center = Offset(imageWidth / 2, imageHeight / 2);
+
+      // Convert degrees to radians for rotation
       final double angleRadians = angleDegrees * pi / 180;
 
+      // Clear canvas (optional)
       final Paint backgroundPaint = Paint()..color = Colors.transparent;
       canvas.drawRect(Rect.fromLTWH(0, 0, imageWidth, imageHeight), backgroundPaint);
 
+      // Move canvas origin to center point for rotation
       canvas.translate(center.dx, center.dy);
+
+      // Rotate canvas by the angle
       canvas.rotate(angleRadians);
+
+      // Draw image centered at origin
       canvas.drawImage(
         image,
         Offset(-image.width / 2, -image.height / 2),
         Paint(),
       );
+
+      // Undo rotation and translation
       canvas.rotate(-angleRadians);
       canvas.translate(-center.dx, -center.dy);
 
+      // Prepare and draw text with white glow shadow
       final textStyle = TextStyle(
         color: Colors.red,
         fontSize: 40,
@@ -137,7 +140,7 @@ class MapScreenState extends State<MapScreen> {
         textDirection: TextDirection.ltr,
       );
       textPainter.layout(maxWidth: imageWidth);
-      final double textY = imageHeight - 40.0;
+      final double textY = imageHeight - 40.0; // Adjust text position to be above the image
       textPainter.paint(canvas, Offset((imageWidth - textPainter.width) / 2, textY));
 
       final picture = pictureRecorder.endRecording();
@@ -147,7 +150,6 @@ class MapScreenState extends State<MapScreen> {
 
       return BitmapDescriptor.fromBytes(bytes);
     } catch (e) {
-      print("Marker creation error: $e");
       return BitmapDescriptor.defaultMarker;
     }
   }
@@ -171,6 +173,7 @@ class MapScreenState extends State<MapScreen> {
       final double lng = rawLng.toDouble();
       final String id = item["_id"]?.toString() ?? item["name"] ?? "unknown";
 
+      // Extract angle from coordinates
       double angle = 0.0;
       if (item["coordinates"].containsKey("angle")) {
         try {
@@ -182,31 +185,33 @@ class MapScreenState extends State<MapScreen> {
         }
       }
 
-      final markerIcon = await _createCustomMarker(item["name"] ?? '', angle);
-
+      // Check if marker exists
       if (newMarkersMap.containsKey(id)) {
         Marker oldMarker = newMarkersMap[id]!;
+        final markerIcon = await _createCustomMarker(item["name"] ?? '', angle);
         newMarkersMap[id] = oldMarker.copyWith(
           positionParam: LatLng(lat, lng),
           iconParam: markerIcon,
-          anchorParam: const Offset(0.5, 0.5),
+          anchorParam: const Offset(0.5, 0.5), // Set anchor to the center of the marker
         );
       } else {
+        // Create new marker with rotated icon
+        final markerIcon = await _createCustomMarker(item["name"] ?? '', angle);
         final newMarker = Marker(
           markerId: MarkerId(id),
           position: LatLng(lat, lng),
           infoWindow: InfoWindow(title: item["name"] ?? '', snippet: 'Real Location'),
           icon: markerIcon,
-          anchor: const Offset(0.5, 0.5),
+          anchor: const Offset(0.5, 0.5), // Set anchor to the center of the marker
         );
         newMarkersMap[id] = newMarker;
       }
     }
 
+    // Remove markers not in data anymore
     final dataIds = _data.map((e) => e["_id"]?.toString() ?? e["name"]).toSet();
     newMarkersMap.removeWhere((key, _) => !dataIds.contains(key));
 
-    if (!mounted) return;
     setState(() {
       _markersMap = newMarkersMap;
     });
@@ -216,7 +221,6 @@ class MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: GoogleMap(
-        key: const ValueKey("google_map"),
         onMapCreated: _onMapCreated,
         initialCameraPosition: CameraPosition(
           target: _center,
