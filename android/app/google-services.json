@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "729998704705",
+    "project_id": "igpsnotification-8df85",
+    "storage_bucket": "igpsnotification-8df85.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:729998704705:android:a5c2f7b478a53f5a6086c0",
+        "android_client_info": {
+          "package_name": "com.itsystem.igps"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC53qSUZsTW93Se7PMRsI1cD8dtnXRM4ms"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
